@@ -152,6 +152,7 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 			System.out.printf("fixup section type %d size 0x%x\n", fixupSectionType, fixupSectionSize);
 			
 			switch (fixupSectionType) {
+				// Symbol names
 				case 0: {
 					int symbolCount = br.readNextShort();
 					
@@ -164,6 +165,28 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 					break;
 				}
 				
+				// Internal relocations
+				// Handling this seems to be unneeded...
+				case 1: {
+					/*long intRelocCount = br.readNextUnsignedInt();
+					
+					try {
+						for (int i = 0; i < intRelocCount; i++) {
+							long offset = br.readNextUnsignedInt();
+							
+							// HACK: dear god. ghidra doesn't let you read or write unsigned values. so here's a hack...
+							long origVal = api.getInt(api.toAddr(baseAddrOrig + offset)) & 0xffffffffL;
+							api.setInt(api.toAddr(baseAddrOrig + offset), (int) ((baseAddrOrig + origVal) & 0xffffffffL));
+						}
+					}
+					catch (Exception e) {
+						e.printStackTrace();
+					}*/
+					
+					break;
+				}
+				
+				// External relocations
 				case 2:
 				case 3:
 				case 4: {
