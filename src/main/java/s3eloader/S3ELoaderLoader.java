@@ -46,6 +46,27 @@ import ghidra.util.task.TaskMonitor;
  * TODO: Provide class-level documentation that describes what this loader does.
  */
 public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
+	String[] ARCH_LANGUAGE_MAPPING = {
+			// Note: Some of these are wrong/not seemingly supported by ghidra
+			// and are mapped to their closest match
+			"ARM:LE:32:v4t", // ARM4T
+			"ARM:LE:32:v4", // ARM4
+			"ARM:LE:32:v5t", // ARM5T
+			"ARM:LE:32:v5t", // ARM5TE
+			"ARM:LE:32:v5t", // ARM5TEJ
+			"ARM:LE:32:v6", // ARM6
+			"ARM:LE:32:v6", // ARM6K
+			"ARM:LE:32:v6", // ARM6T2
+			"ARM:LE:32:v6", // ARM6Z
+			"x86:LE:64:default", // X86
+			"PowerPC:LE:32:4xx", // PPC
+			"x86:LE:64:default", // AMD64
+			"x86:LE:64:default", // X86_64
+			"ARM:LE:32:v7", // ARM7A
+			"ARM:LE:32:v8", // ARM8A
+			"AARCH64:LE:64:v8A", // ARM8A_AARCH64
+			"x86:LE:64:default", // NACLX86_64
+	};
 
 	@Override
 	public String getName() {
@@ -65,8 +86,17 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 		// TODO: Examine the bytes in 'provider' to determine if this loader can load it.  If it 
 		// can load it, return the appropriate load specifications.
 		//if (br.readNextByteArray(4) == (("XE3U").getBytes())) {
-			loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair("ARM:LE:32:v6", "default"), true));
+		//	loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair("ARM:LE:32:v6", "default"), true));
 		//}
+		
+		int header = br.readNextInt();
+		int version = br.readNextInt();
+		short flags = br.readNextShort();
+		short arch = br.readNextShort();
+		
+		if (header == 0x55334558) {
+			loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair(ARCH_LANGUAGE_MAPPING[arch], "default"), true));
+		}
 		
 		// !! TODO !! We should find the header and read what arch to use
 
@@ -106,9 +136,18 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 		long baseAddrOrig = br.readNextInt(); // this is a long since we need the full address range lmao
 		int extraOffset = br.readNextInt();
 		int extraSize = br.readNextInt();
-		int extHeaderSize = br.readNextInt(); // TODO should be used
-		int realCodeSize = br.readNextInt(); // TODO should be dynamic
-		int showSplash = br.readNextInt(); // TODO should be dynamic
+		int extHeaderSize = br.readNextInt();
+		
+		boolean hasCodeDataSplit = false;
+		int realCodeSize = 0;
+		
+		// TODO it's more complicated than this but should allow loading early and late s3e which
+		// are currently what I really care about
+		if (extHeaderSize <= 12) {
+			hasCodeDataSplit = true;
+			realCodeSize = br.readNextInt();
+			int showSplash = br.readNextInt();
+		}
 		
 		int bssSize = codeMemSize - codeFileSize;
 		
@@ -118,15 +157,23 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 		FileBytes fb = memory.createFileBytes(provider.getName(), 0, provider.length(), ist, monitor);
 		
 		try {
-			MemoryBlock block = memory.createInitializedBlock("code", api.toAddr(baseAddrOrig), fb, codeOffset, realCodeSize, false);
-			block.setRead(true);
-			block.setWrite(false);
-			block.setExecute(true);
-			
-			MemoryBlock data = memory.createInitializedBlock("data", api.toAddr(baseAddrOrig + realCodeSize), fb, codeOffset + realCodeSize, codeFileSize - realCodeSize, false);
-			data.setRead(true);
-			data.setWrite(true);
-			data.setExecute(false);
+			if (hasCodeDataSplit) {
+				MemoryBlock block = memory.createInitializedBlock("code", api.toAddr(baseAddrOrig), fb, codeOffset, realCodeSize, false);
+				block.setRead(true);
+				block.setWrite(false);
+				block.setExecute(true);
+				
+				MemoryBlock data = memory.createInitializedBlock("data", api.toAddr(baseAddrOrig + realCodeSize), fb, codeOffset + realCodeSize, codeFileSize - realCodeSize, false);
+				data.setRead(true);
+				data.setWrite(true);
+				data.setExecute(false);
+			}
+			else {
+				MemoryBlock block = memory.createInitializedBlock("code+data", api.toAddr(baseAddrOrig), fb, codeOffset, codeFileSize, false);
+				block.setRead(true);
+				block.setWrite(true);
+				block.setExecute(true);
+			}
 			
 			MemoryBlock bss = memory.createInitializedBlock("bss", api.toAddr(baseAddrOrig + codeFileSize), bssSize, (byte) 0x0, monitor, false);
 			bss.setRead(true);
