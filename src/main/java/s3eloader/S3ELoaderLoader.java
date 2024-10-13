@@ -95,7 +95,7 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 		short arch = br.readNextShort();
 		
 		if (header == 0x55334558) {
-			loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair(ARCH_LANGUAGE_MAPPING[arch], "default"), true));
+			loadSpecs.add(new LoadSpec(this, 0, new LanguageCompilerSpecPair(ARCH_LANGUAGE_MAPPING[arch & 0xff], "default"), true));
 		}
 		
 		// !! TODO !! We should find the header and read what arch to use
