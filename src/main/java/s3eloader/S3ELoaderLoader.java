@@ -250,7 +250,7 @@ public class S3ELoaderLoader extends AbstractProgramWrapperLoader {
 							System.out.printf("create extref 0x%x (offset 0x%x) for %s\n", baseAddrOrig + offset, offset, symbolNames.get(symbolIndex));
 							
 							Data data = api.createDWord(api.toAddr(baseAddrOrig + offset));
-							api.createExternalReference(data, "libs3e_android.so", symbolNames.get(symbolIndex), null);
+							api.createExternalReference(data, "External", symbolNames.get(symbolIndex), null);
 						}
 					}
 					catch (Exception e) {
